@@ -1,8 +1,31 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, flash, url_for, redirect
 from forms import SignUpForm
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///authors.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config["SECRET_KEY"] = "secret"
+db = SQLAlchemy(app)
+
+
+class Author(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    title = db.Column(db.String(100), nullable=False)
+    content = db.Column(db.String(500), default="")
+
+    def __init__(self, name, title, content):
+        self.name = name
+        self.title = title
+        self.content = content
+
+    def __repr__(self):
+        return '<Author %r' % self.id
+
+
+db.create_all()
+db.session.commit()
 
 characters = [
     {
@@ -29,9 +52,25 @@ characters = [
 ]
 
 
-@app.route('/')
-def hello_world():
-    return render_template('home.html', word="World", title="Home")
+@app.route('/', methods=['GET'])
+def list_authors():
+    authors = Author.query.all()
+    return render_template('list_authors.html', authors=authors, title="Fun Animal Facts")
+
+
+@app.route('/add_authors', methods=['GET'])
+def add_authors():
+    if request.method == 'POST':
+        if not request.form['name'] or not request.form['title'] or not request.form['content']:
+            flash('Please enter all the fields', 'error')
+        else:
+            author = Author(request.form['name'], request.form['title'], request.form['content'])
+
+            db.session.add(author)
+            db.session.commit()
+            flash('Thanks for the awesome info!')
+            return redirect(url_for('list_authors'))
+        return render_template('add.html', title='Add New Author')
 
 
 @app.route('/character')
